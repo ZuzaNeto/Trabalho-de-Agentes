@@ -1,8 +1,8 @@
 #Reconhecimentos e Direitos Autorais
 
-@autor: [Emanuelle Da Silva Laune, Henrique Abreu Macedo, José Nunes De Sousa Neto, Vinicius Andre Almeida Pereira]
+@autor: [José Nunes De Sousa Neto]
 
-@contato: [emanuelle.laune@discente.ufma.br, henrique.am@discente.ufma.br, jls.silva@discente.ufma.br, jose.nsn@discente.ufma.br, almeida.vinicius@discente.ufma.br]
+@contato: [jose.nsn@discente.ufma.br]
 
 @data última versão: 09/12/2024
 
