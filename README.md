@@ -1,4 +1,4 @@
-##Reconhecimentos e Direitos Autorais
+#Reconhecimentos e Direitos Autorais
 
 @autor: [Emanuelle Da Silva Laune, Henrique Abreu Macedo, José Nunes De Sousa Neto, Vinicius Andre Almeida Pereira]
 
@@ -8,7 +8,7 @@
 
 @versão: 1.0
 
-@outros repositórios: https://github.com/josevbrito/mercadinho
+@outros repositórios: [https://github.com/ZuzaNeto/Trabalho-de-Agentes/tree/main]
 
 @Agradecimentos: Universidade Federal do Maranhão (UFMA), Professor Doutor Thales Levi Azevedo Valente, e colegas de curso.
 
