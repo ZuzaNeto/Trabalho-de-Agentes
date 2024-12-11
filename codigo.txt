@@ -1,130 +1,189 @@
-; === INSTRUÇÕES ===
-; === DEFINIÇÃO DE VARIÁVEIS ===
-
 globals [
-  raining?            ;estado global:indica chuva ou nao
-  rain-intensity      ;intensidade da chuva
-  sunny?              ;estado global do sol
-  sun-intensity       ;intensidade do sol
-  climate-duration    ;duracao do clima
+  climate
+  food-respawn-rate
+  pheromone-evaporation-rate
 ]
 
-; Variáveis dos patches (espaço onde as formigas se movem)
+breed [ants ant]
+breed [wolves wolf] ; primeiro ia criar um lobo, mas depois mudei para uma onça, por isso o código se refere a wolf
+breed [anteaters anteater]
+breed [fruits fruit]
+
 patches-own [
-  chemical             ; quantidade de feromônio neste patch
-  food                 ; quantidade de comida neste patch (0, 1 ou 2)
-  nest?                ; verdadeiro se o patch é parte do ninho, falso caso contrário
-  nest-scent           ; valor numérico maior próximo ao ninho, usado para orientar as formigas
-  food-source-number   ; identifica as fontes de alimento (1, 2 ou 3)
-  predator-pheromone   ; feromonio
+  pheromone-level
+  obstacle?
+  food-type ; 0 = sem comida, 1 = comida de velocidade, 2 = comida que da vida
+  nest? ; True se for um ninho
 ]
 
-; Variáveis das tartarugas (formigas e predadores)
 turtles-own [
-  ant-type           ; tipo de formiga
-  life               ; Quantidade de vida da formiga ou predador
-  carrying-food?     ; Indica se a formiga está carregando comida
-  predator-alert     ; Indica se a formiga está alertando sobre um predador
+  ant-type ; 1 = red, 2 = blue, 3 = green (cor das formigas)
+  health
+  speed
 ]
 
-; === PROCEDIMENTOS DE CONFIGURAÇÃO ===
+wolves-own [
+  health ; Vida da onça
+  speed
+]
+
+ants-own [
+  health ; Vida das formigas
+  speed  ; Velocidade das formigas
+]
+
+anteaters-own [
+  health ; Vida do tamandua
+  speed
+]
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Setup
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 to setup
-  clear-all                            ; limpa o mundo e reinicia a simulação
-  set sunny? false                     ; sol ativo no inicio
-  set raining? false                   ; sem chuva no inicio
-  set sun-intensity 50                 ; intensidade inicial do sol
-  set rain-intensity 50                ; intensidade inicial da chuva
-  set climate-duration 50              ; duracao do clima
-  setup-sun                            ; criar o sol
-  set-default-shape turtles "bug"      ; define o formato das formigas como "inseto"
-  create-turtles population [          ; cria formigas com base no valor do slider 'population
-    ifelse random 100 < 50 [           ; 50% operarios e 50% guerreiras
-      set ant-type "operaria"          ; operaria
-      set size 1                       ; tamanho
-      set color red                    ; cor
-      set shape "ant"                  ;
-      set life 3
-    ] [
-      set ant-type "guerreira"
-      set size 2
-      set color orange
-      set shape "ant 2"
-      set life 7
-    ]
-    set carrying-food? false
-    set predator-alert false
-  ]
-  create-predators
-  setup-patches                         ; chama o procedimento para configurar os patches
-  reset-ticks                           ; reinicia o contador de tempo da simulação
-end
+  clear-all
 
-to create-predators
-  create-turtles 1                      ; Cria um predador
-  [set size 11                          ; tamanho
-   set color brown                      ; cor
-   set label "tamandua"                 ; nome do predador
-   setxy -1 21                          ; posição do predador
-   set life 100                         ; vida inicial predador(Tamanduá)
-  ]
-  ;;Cria o Garfanhoto
-  create-turtles 1                      ; Cria um predador
-  [set size  4                          ; tamanho
-   set color green                      ;cor
-   set shape "frog top"                ;nome do predador
-   setxy 20 -22                         ;posição do predador
-   set life 15                          ;vida inicial predador(Gafanhoto)
-  ]
-end
+  ;; Set variáveis de clima
+  set climate "spring"
+  set food-respawn-rate 20
+  set pheromone-evaporation-rate 0.01
 
-to setup-patches
+  ;; Create patches
   ask patches [
-    setup-nest                          ; configura o ninho nos patches
-    setup-food                          ; configura as fontes de alimento
-    recolor-patch                       ; define as cores dos patches para visualização
+    set pheromone-level 0
+    set food-type 0
+    set obstacle? (random-float 1 < 0.1) ; 10% de ser um obstáculo
+    set nest? false
+  ]
+
+  ;; Criar ninhos
+  ask n-of 3 patches with [not obstacle?] [
+    set nest? true
+    set pcolor gray
+  ]
+  
+  ;; Criar formigas
+  create-ants 100 [
+    set color one-of [red blue green]
+    set size 2
+    set shape "bug"
+    set ant-type ifelse-value (color = red) [1] [ifelse-value (color = blue) [2] [3]]
+    set health 100
+    set speed 1
+    move-to one-of patches with [not obstacle?]
+  ]
+
+  ;; Criar onças e tamanduás
+  create-wolves 2 [
+    set color gray
+    set size 10
+    set shape "jaguar"
+    set speed 2
+    set health 200 ; Vida da onça
+    move-to one-of patches with [not obstacle?]
+  ]
+
+  create-anteaters 5 [
+    set color brown
+    set size 8
+    set shape "tamandua"
+    set speed 1.5
+    move-to one-of patches with [not obstacle?]
+  ]
+
+ ;; Colocar comida
+  place-food
+
+  ;; Colocar frutas
+  create-fruits 10 [
+    set shape "apple"
+    set color green
+    set size 5
+    move-to one-of patches with [not obstacle? and not nest?]
+  ]
+
+  reset-ticks
+end
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Spawn das frutas
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+to place-food
+  ask n-of food-respawn-rate patches with [not obstacle?] [
+    set food-type one-of [1 2] ; ser gerado um tipo aleatório de alimento
   ]
 end
 
-to setup-nest  ; procedimento dos patches
-  set nest? (distancexy 0 0) < 5         ; define patches dentro de um raio de 5 unidades como ninho
-  set nest-scent 200 - distancexy 0 0    ; valor maior próximo ao ninho, decrescendo com a distância
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Go
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+to go
+  update-climate
+  move-ants
+  move-wolves
+  move-anteaters
+  evaporate-pheromones
+  regenerate-food
+  check-collisions
+  tick
 end
 
-to setup-food  ; procedimento dos patches
-  ; Configura três fontes de alimento em posições específicas
-  if (distancexy (0.6 * max-pxcor) 0) < 5 [
-    set food-source-number 1
-  ]
-  if (distancexy (-0.6 * max-pxcor) (-0.6 * max-pycor)) < 5 [
-    set food-source-number 2
-  ]
-  if (distancexy (-0.8 * max-pxcor) (0.8 * max-pycor)) < 5 [
-    set food-source-number 3
-  ]
-  ; Se o patch faz parte de uma fonte de alimento, atribui uma quantidade de comida (1 ou 2)
-  if food-source-number > 0 [
-    set food one-of [1 2]
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Clima
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+to update-climate
+  ;; Exemplo lógico de mudança de clima
+  if ticks mod 200 = 0 [
+    set climate one-of ["spring" "summer" "autumn" "winter"]
+    if climate = "summer" [
+      set food-respawn-rate 10
+      set pheromone-evaporation-rate 0.02
+    ]
+    if climate = "winter" [
+      set food-respawn-rate 5
+      set pheromone-evaporation-rate 0.005
+    ]
   ]
 end
 
-to recolor-patch
-  ifelse predator-pheromone > 0 [
-    set pcolor scale-color yellow predator-pheromone 0.1 5 ; Feromônio do predador em amarelo
-  ] [
-    ifelse food > 0 [
-     ; Patches com comida são coloridos de acordo com a fonte
-      if food-source-number = 1 [ set pcolor cyan ]
-      if food-source-number = 2 [ set pcolor sky ]
-      if food-source-number = 3 [ set pcolor blue ]
-    ] [
-      ifelse nest? [
-         set pcolor violet ; Patches do ninho em violeta
-       ] [
-         ifelse chemical > 0 [
-           set pcolor scale-color green chemical 0.1 5 ; Feromônio das formigas em verde
-         ] [
-           set pcolor black ; Patches sem feromônio, comida ou ninho ficam pretos
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Movimentação
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+to move-ants
+  ask ants [
+    rt random 360
+    fd speed
+    if obstacle? [bk speed]
+
+    ;; Comer a comida
+    if food-type > 0 [
+      if food-type = 1 [set speed speed + 0.5]
+      if food-type = 2 [set health health + 20]
+      set food-type 0
+    ]
+
+    ;; liberar feromonios
+    set pheromone-level pheromone-level + 1
+
+    ;; seguir feromonios
+    let target one-of patches in-radius 1 with [pheromone-level > 0 and not obstacle?]
+    if target != nobody [
+      face target
+      fd speed
+    ]
+    
+    ;; atacar onças
+    let target-wolf one-of wolves in-radius 1
+    if target-wolf != nobody [
+      ask target-wolf [
+        set health health - 10  ;; Formiga causa 10 de dano
+        if health <= 0 [
+          die
         ]
       ]
     ]
@@ -132,326 +191,72 @@ to recolor-patch
 end
 
 
-; === PROCEDIMENTOS PRINCIPAIS ===
+to move-wolves
+  ask wolves [
+    rt random 360
+    fd speed
+    if obstacle? [bk speed]
 
-to go
-  switch-climate       ; Alterna entre sol e chuva
-  adjust-sun-visuals   ; Ajusta visualmente o sol
-  sunny-effects        ; Aplica efeitos do sol
-  toggle-rain
-  create-rain
-  move-rain
-  evaporate-rain
-  ask turtles with [ant-type = "operaria"] [
-    ifelse color = red [
-      look-for-food
-    ] [
-      return-to-nest
-    ]
-    wiggle
-    fd 2.5
-  ]
-  ask turtles with [ant-type = "guerreira"] [
-  if predator-alert [
-      defend-nest
-    ]
-    patrol
-    fd 1
-    ]
-    ask turtles with [ant-type != "sun"] [
-      if who >= ticks [ stop ]             ; sincroniza a saída das formigas do ninho com o tempo
-  ]
-  pheromone-diffusion ; Difusão e evaporação dos feromônios
-  recolor-patches
-  predator-move
-  predator-attack    ; Predadores atacam formigas
-  ant-defense        ; Formigas defendem-se e avisam outra
-  tick                                  ; avança o contador de tempo da simulação
-end
-
-; === COMPORTAMENTOS DAS FORMIGAS ===
-
-to look-for-food  ; procedimento das formigas
-  if food > 0 [
-    set color orange + 1                ; muda a cor para indicar que está carregando comida
-    set food food - 1                   ; reduz a quantidade de comida no patch
-    rt 180                              ; vira 180 graus para retornar ao ninho
-    stop                                ; finaliza o procedimento atual
-  ]
-  if (chemical >= 0.05) and (chemical < 2) [
-    uphill-chemical                     ; segue o rastro de feromônio
-  ]
-end
-
-to patrol
-  if random 100 < 10 [ rt random 360 ] ; Movimento aleatório ocasional
-end
-
-
-to return-to-nest  ; procedimento das formigas
-  ifelse nest? [
-    set color red                       ; deposita a comida e muda a cor para não carregando
-    rt 180                              ; vira 180 graus para sair novamente
-  ] [
-    set chemical chemical + 60          ; deposita feromônio no caminho de volta
-    uphill-nest-scent                   ; move-se em direção ao ninho seguindo o gradiente
-  ]
-end
-
-to defend-nest
-  let predator one-of turtles in-radius 2 with [label = "tamandua" or label = "gafanhoto"]
-  if predator != nobody [
-    ask predator [
-      set life life - 2 ; Guerreiras causam mais dano
-      if life <= 0 [ die ]
+    ;; atacar tamandua
+    let target one-of anteaters in-radius 1
+    if target != nobody [
+      ask target [die]
     ]
   ]
 end
 
 
-to ant-defense                           ;defesa/ataque das formigas
-  ask turtles with [ant-type = "guerreira"] [
-    let predator one-of turtles in-radius 1 with [label = "tamandua" or label = "gafanhoto"]
-    if predator != nobody [
-      ask predator [
-        set life life - 3                ;diminui a vida de -1 em -1
-        if life <= 0 [die]              ;verifica a morte ou nao do predaor
-      ]
-      set predator-alert true           ;alerta do predador
-    ]
-  ]
-  ask turtles with [ant-type = "operaria"] [
-    let predator one-of turtles in-radius 1 with [label = "tamandua" or label = "gafanhoto"]
-    if predator != nobody [
-      ask predator [
-        set life life - 1
-        if life <= 0 [die]
-      ]
-      set predator-alert true
+to move-anteaters
+  ask anteaters [
+    rt random 360
+    fd speed
+    if obstacle? [bk speed]
+
+    ;; caçar formigas
+    let target one-of ants in-radius 1
+    if target != nobody [
+      ask target [die]
     ]
   ]
 end
 
-; === COMPORTAMENTO DOS PREDADORES ===
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Feromonios
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-to predator-attack                       ;ataque do predador
-  ask turtles with [label = "tamandua" or shape = "frog top"] [
-    let prey one-of turtles in-radius 1 with [color = red or color = orange]
-    if prey != nobody [
-     ask prey [
-       set life life - 3                  ;mata a formiga de forma instantanea
-        if life <= 0 [die]                ;verifica a morte ou nao da formiga
-      ]
-     set predator-alert true             ;alerta da presa
-    ]
-  ]
-end
-
-to predator-move
-  ask turtles with [label = "tamandua"] [
-    let prey one-of turtles with [ant-type = "operaria" or ant-type = "guerreira"]
-    ifelse prey != nobody [
-      face prey                         ; Predador olha na direção da presa
-      fd 0.5                              ; Move-se em direção à presa
-    ] [
-      rt random 4                      ; Caso não haja presa, move-se aleatoriamente
-      lt random 4
-      fd 0.2
-    ]
-    if not can-move? 1 [ rt 180 ]       ; Se não puder se mover, gira 180 graus
-  ]
-  ask turtles with [shape = "frog top"] [
-    let prey one-of turtles with [ant-type = "operaria" or ant-type = "guerreira"]
-    ifelse prey != nobody [
-      face prey                         ; Predador olha na direção da presa
-      fd 3                              ; Move-se em direção à presa
-    ] [
-      rt random 10                     ; Caso não haja presa, move-se aleatoriamente
-      lt random 10
-      fd 1.2
-    ]
-    if not can-move? 1 [ rt 180 ]       ; Se não puder se mover, gira 180 graus
-  ]
-
-end
-
-
-
-; === MOVIMENTAÇÃO E ORIENTAÇÃO ===
-
-to uphill-chemical  ; procedimento das formigas
-  let scent-ahead chemical-scent-at-angle 0
-  let scent-right chemical-scent-at-angle 45
-  let scent-left chemical-scent-at-angle -45
-  if (scent-right > scent-ahead) or (scent-left > scent-ahead) [
-    ifelse scent-right > scent-left [
-      rt 45                              ; vira 45 graus à direita
-    ] [
-      lt 45                              ; vira 45 graus à esquerda
-    ]
-  ]
-end
-
-to uphill-nest-scent  ; procedimento das formigas
-  let scent-ahead nest-scent-at-angle 0
-  let scent-right nest-scent-at-angle 45
-  let scent-left nest-scent-at-angle -45
-  if (scent-right > scent-ahead) or (scent-left > scent-ahead) [
-    ifelse scent-right > scent-left [
-      rt 45                              ; vira 45 graus à direita
-    ] [
-      lt 45                              ; vira 45 graus à esquerda
-    ]
-  ]
-end
-
-to pheromone-diffusion
-    diffuse chemical (diffusion-rate / 100)
-    diffuse predator-pheromone 0.1
-    ask patches [
-      set chemical chemical * (100 - evaporation-rate) / 100
-      set predator-pheromone predator-pheromone * 0.9
-  ]
-end
-
-to recolor-patches
+to evaporate-pheromones
   ask patches [
-    recolor-patch                        ;atualiza a cor
+    set pheromone-level pheromone-level * (1 - pheromone-evaporation-rate)
   ]
 end
 
-to wiggle  ; procedimento das formigas
-  rt random 40                           ; vira um ângulo aleatório à direita
-  lt random 40                           ; vira um ângulo aleatório à esquerda
-  if not can-move? 1 [ rt 180 ]          ; se não puder se mover, vira 180 graus
-end
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Recarregar alimentos
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-; === Clima ===
-
-to create-rain                          ;criando a chuva
-  if raining? and not sunny? [
-    create-turtles rain-intensity [
-      set size 0.3                      ; tamanho
-      set shape "raindrop"              ; gota importada da biblioteca e renomeada
-      set color blue                    ; cor
-      setxy random-xcor max-pycor       ; chuva caindo no mapa
-      set heading 100                   ; de onde cai
+to regenerate-food
+  if random 100 < food-respawn-rate [
+    ask one-of patches with [not obstacle? and food-type = 0] [
+      set food-type one-of [1 2]
     ]
   ]
 end
 
-to move-rain                           ;  movimentando a chuva
-  ask turtles with [shape = "raindrop"] [
-    fd 3
-    if ycor <= min-pycor [
-      ask patch-here [
-        if pcolor != blue [set pcolor blue]
-      ]
-      die
-    ]
-  ]
-end
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Colisões
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-to evaporate-rain                    ; desaparecendo com as gotas
-  ask patches with [pcolor = blue] [
-    set pcolor scale-color black random 10 0 10
-  ]
-end
-
-to toggle-rain                 ; chance de chover
-  if random 100 < 40 [         ; 20% de chance de mudar o estado a cada tick
-    set raining? not raining?  ; Alterna entre true e false
-  ]
-end
-
-to setup-sun                  ; criando o sol
-  create-turtles 1 [
-    set size 5
-    set color yellow
-    set shape "sun"
-    setxy 23 23
-  ]
-end
-
-to switch-climate
-  if climate-duration = 0 [
-    ; Alterna entre sol e chuva
-    ifelse sunny? [
-      set sunny? false
-      set raining? true
-    ] [
-      set sunny? true
-      set raining? false
-    ]
-
-    ; Define nova duração entre 50 e 100 ticks
-    set climate-duration random 50 + 50
-
-    ; Ajusta intensidade do sol ou zera durante chuva
-    ifelse sunny? [
-      set sun-intensity random 50 + 50
-    ] [
-      set sun-intensity 0
-    ]
-
-    ; Ajusta a cor do sol com base no clima
-    ask turtles with [shape = "sun"] [
-      ifelse sunny? [
-        set color yellow  ; Sol fica amarelo
-      ] [
-        set color gray    ; Sol fica cinza
+to check-collisions
+  ask ants [
+    let otherr one-of ants-here with [self != myself]
+    if otherr != nobody [
+      if (ant-type = 1 and [ant-type] of otherr = 3) or
+         (ant-type = 2 and [ant-type] of otherr = 1) or
+         (ant-type = 3 and [ant-type] of otherr = 2) [
+        ask otherr [die]
       ]
     ]
   ]
-
-  ; Reduz o contador de duração
-  set climate-duration climate-duration - 1
 end
-
-
-
-to sunny-effects
-  if sunny? [
-    ask patches with [pcolor = blue] [
-      set pcolor scale-color black (sun-intensity / 10) 0 10 ; Evaporação proporcional à intensidade do sol
-    ]
-  ]
-end
-
-to adjust-sun-visuals
-  ask turtles with [label = "☀"] [
-    set size (sun-intensity / 20) + 2 ; Tamanho proporcional à intensidade
-    ifelse sunny? [
-      set color yellow
-    ] [
-      set color gray
-    ]
-  ]
-end
-
-
-
-; === FUNÇÕES AUXILIARES ===
-
-to-report nest-scent-at-angle [angle]
-  let p patch-right-and-ahead angle 1
-  if p = nobody [ report 0 ]             ; se não houver patch, retorna 0
-  report [nest-scent] of p               ; retorna o valor de 'nest-scent' do patch
-end
-
-to-report chemical-scent-at-angle [angle]
-  let p patch-right-and-ahead angle 1
-  if p = nobody [ report 0 ]             ; se não houver patch, retorna 0
-  report [chemical] of p                 ; retorna o valor de 'chemical' do patch
-end
-
-; === INFORMAÇÕES ADICIONAIS ===
-
-; Este modelo simula o comportamento de formigas em busca de alimento e retorno ao ninho.
-; As formigas deixam rastros de feromônio para guiar outras formigas às fontes de alimento.
-; O feromônio evapora e difunde ao longo do tempo, criando um gradiente que as formigas seguem.
-
-; === COPYRIGHT ===
-
 ; Copyright 1997 Uri Wilensky.
 ; Veja a aba 'Info' para o copyright completo e licença.
