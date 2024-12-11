@@ -10,6 +10,8 @@
 
 @outros repositórios: [https://github.com/ZuzaNeto/Trabalho-de-Agentes/tree/main]
 
+@link gravação da apresentação: [https://drive.google.com/drive/folders/1IgnKIffayYVg6Hh3YEZGkplnWAUFVavR?hl=pt-br] 
+
 @Agradecimentos: Universidade Federal do Maranhão (UFMA), Professor Doutor Thales Levi Azevedo Valente, e colegas de curso.
 
 @Copyright/License
