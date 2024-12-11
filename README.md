@@ -4,7 +4,7 @@
 
 @contato: [jose.nsn@discente.ufma.br]
 
-@data última versão: 09/12/2024
+@data última versão: 10/12/2024
 
 @versão: 1.0
 
